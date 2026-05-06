@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Open-Source AI Paradox</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep-space: #0A0A0F;
+    --white: #FFFFFF;
+    --silver: #D1D1D5;
+    --neon-orange: #FF6B1A;
+    --neon-orange-dim: rgba(255,107,26,0.15);
+    --glass-bg: rgba(10,10,15,0.75);
+    --glass-border: rgba(255,107,26,0.6);
+    --transition-cinematic: all 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--deep-space);
+    font-family: 'Inter', sans-serif;
+    color: var(--white);
+    cursor: none;
+  }
+
+  /* Custom cursor */
+  .cursor {
+    position: fixed; width: 12px; height: 12px;
+    background: var(--neon-orange); border-radius: 50%;
+    pointer-events: none; z-index: 9999;
+    transform: translate(-50%,-50%);
+    transition: transform 0.1s ease, width 0.3s ease, height 0.3s ease;
+    mix-blend-mode: screen;
+  }
+  .cursor-ring {
+    position: fixed; width: 36px; height: 36px;
+    border: 1px solid rgba(255,107,26,0.5); border-radius: 50%;
+    pointer-events: none; z-index: 9998;
+    transform: translate(-50%,-50%);
+    transition: transform 0.3s ease, width 0.3s ease, height 0.3s ease, border-color 0.3s ease;
+  }
+
+  /* ── TUNNEL BACKGROUND ── */
+  .tunnel-wrapper {
+    position: fixed; inset: 0;
+    perspective: 1000px;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .tunnel-bg {
+    position: absolute; inset: -20%;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 50%, rgba(255,107,26,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.9) 100%),
+      repeating-conic-gradient(from 0deg at 50% 50%,
+        rgba(255,107,26,0.03) 0deg, transparent 4deg,
+        transparent 30deg, rgba(255,107,26,0.015) 34deg
+      );
+    transform-origin: center center;
+    transition: transform 2s cubic-bezier(0.25, 1, 0.5, 1);
+    transform: scale(1.0);
+    will-change: transform;
+  }
+
+  /* Tunnel grid lines */
+  .tunnel-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,107,26,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,107,26,0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+    transform-origin: 50% 50%;
+    perspective: 800px;
+    transform: perspective(800px) rotateX(60deg) translateY(-30%) scale(2);
+    transition: transform 2s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  /* Tunnel rings */
+  .tunnel-rings {
+    position: absolute; inset: 0;
+    overflow: hidden;
+  }
+  .ring {
+    position: absolute; border-radius: 50%;
+    border: 1px solid rgba(255,107,26,0.08);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    animation: ringPulse 8s ease-in-out infinite;
+  }
+
+  @keyframes ringPulse {
+    0%,100% { opacity: 0.3; transform: translate(-50%,-50%) scale(1); }
+    50% { opacity: 0.08; transform: translate(-50%,-50%) scale(1.05); }
+  }
+
+  /* Ambient particles */
+  .particles { position: absolute; inset: 0; overflow: hidden; }
+  .particle {
+    position: absolute; border-radius: 50%;
+    background: var(--neon-orange);
+    animation: particleDrift linear infinite;
+    opacity: 0;
+  }
+
+  @keyframes particleDrift {
+    0% { transform: translateY(100vh) translateX(0) scale(0); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(-10vh) translateX(var(--drift)) scale(1.5); opacity: 0; }
+  }
+
+  /* ── SLIDE ENGINE ── */
+  .slides-container {
+    position: fixed; inset: 0;
+    perspective: 1000px;
+    z-index: 10;
+  }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 60px;
+    opacity: 0; pointer-events: none;
+    transform: translateZ(-2000px) scale(0.3);
+    transition: var(--transition-cinematic);
+    will-change: transform, opacity;
+  }
+
+  .slide.active {
+    opacity: 1; pointer-events: all;
+    transform: translateZ(0) scale(1);
+  }
+
+  .slide.exiting {
+    opacity: 0;
+    transform: translateZ(1000px) scale(1.8);
+  }
+
+  .slide.prev-exiting {
+    opacity: 0;
+    transform: translateZ(-2000px) scale(0.3);
+  }
+
+  /* ── GLASS CARD ── */
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 40px 50px;
+    box-shadow:
+      0 0 40px rgba(255,107,26,0.08),
+      0 0 80px rgba(255,107,26,0.04),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,107,26,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ── ORB ── */
+  .orb {
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+      #FFE0C0 0%, #FF6B1A 30%, #E63900 60%, #6B1A00 100%);
+    box-shadow:
+      0 0 60px rgba(255,107,26,0.8),
+      0 0 120px rgba(255,107,26,0.4),
+      0 0 200px rgba(255,107,26,0.2),
+      inset 0 -20px 40px rgba(0,0,0,0.4);
+    animation: orbFloat 6s ease-in-out infinite, orbBreath 4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .orb.caged {
+    box-shadow:
+      0 0 40px rgba(255,107,26,0.5),
+      0 0 80px rgba(255,107,26,0.2),
+      inset 0 -20px 40px rgba(0,0,0,0.4);
+    filter: saturate(0.7) brightness(0.8);
+  }
+
+  @keyframes orbFloat {
+    0%,100% { transform: translateY(0px) rotateY(0deg); }
+    50% { transform: translateY(-20px) rotateY(180deg); }
+  }
+
+  @keyframes orbBreath {
+    0%,100% { box-shadow: 0 0 60px rgba(255,107,26,0.8), 0 0 120px rgba(255,107,26,0.4), 0 0 200px rgba(255,107,26,0.2), inset 0 -20px 40px rgba(0,0,0,0.4); }
+    50% { box-shadow: 0 0 80px rgba(255,107,26,1), 0 0 160px rgba(255,107,26,0.6), 0 0 280px rgba(255,107,26,0.3), inset 0 -20px 40px rgba(0,0,0,0.4); }
+  }
+
+  @keyframes cardFloat {
+    0%,100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes robotFloat {
+    0%,100% { transform: translateY(0px) rotate(-2deg); }
+    50% { transform: translateY(-15px) rotate(2deg); }
+  }
+
+  /* ── TYPOGRAPHY ── */
+  .slide-eyebrow {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--neon-orange);
+    margin-bottom: 16px;
+  }
+
+  h1.slide-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(3rem, 7vw, 6rem);
+    font-weight: 700; line-height: 1.0;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #FFFFFF 0%, #D1D1D5 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  h2.slide-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2rem, 4.5vw, 3.5rem);
+    font-weight: 700; line-height: 1.1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #FFFFFF 0%, #D1D1D5 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-body {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+    font-weight: 300; line-height: 1.7;
+    color: var(--silver);
+    margin-top: 16px;
+  }
+
+  .accent { color: var(--neon-orange); -webkit-text-fill-color: var(--neon-orange); }
+
+  /* ── SLIDE 1: HOOK ── */
+  #slide-1 .content {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; gap: 32px;
+    animation: cardFloat 7s ease-in-out infinite;
+  }
+
+  #slide-1 h1 { font-size: clamp(3rem, 6vw, 5.5rem); max-width: 800px; }
+
+  .orb-label {
+    font-family: 'Inter', sans-serif; font-size: 13px;
+    letter-spacing: 6px; text-transform: uppercase;
+    color: var(--silver); opacity: 0.6;
+  }
+
+  /* ── SLIDE 2: DIVIDE ── */
+  #slide-2 .content {
+    display: flex; gap: 40px; align-items: stretch;
+    max-width: 1000px; width: 100%;
+    animation: cardFloat 6s ease-in-out infinite;
+  }
+
+  .divide-card {
+    flex: 1; padding: 48px 40px;
+    display: flex; flex-direction: column; gap: 20px;
+    position: relative;
+  }
+
+  .divide-card .icon { font-size: 48px; margin-bottom: 8px; }
+  .divide-card h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.6rem; font-weight: 700;
+  }
+  .divide-card p { font-size: 0.95rem; line-height: 1.7; color: var(--silver); }
+
+  .card-closed { border-color: rgba(255,255,255,0.15); }
+  .card-open { border-color: var(--glass-border); }
+
+  .vs-divider {
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2rem; font-weight: 700; color: var(--neon-orange);
+    flex-shrink: 0; text-shadow: 0 0 30px var(--neon-orange);
+  }
+
+  /* ── SLIDE 3: TRADE-OFFS ── */
+  #slide-3 .content {
+    display: flex; gap: 0; max-width: 900px; width: 100%;
+    animation: cardFloat 8s ease-in-out infinite;
+  }
+
+  .tradeoff-panel {
+    flex: 1; padding: 50px 40px;
+  }
+  .tradeoff-panel h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.8rem; font-weight: 700; margin-bottom: 24px;
+  }
+  .tradeoff-panel ul { list-style: none; }
+  .tradeoff-panel li {
+    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.95rem; color: var(--silver); display: flex; gap: 12px;
+    align-items: flex-start;
+  }
+  .tradeoff-panel li::before { content: '→'; color: var(--neon-orange); flex-shrink: 0; }
+  .panel-divider { width: 1px; background: var(--glass-border); }
+
+  /* ── SLIDE 4: TRUST GAP ── */
+  #slide-4 .content {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 48px; text-align: center;
+  }
+
+  .trust-nodes {
+    display: flex; align-items: center; gap: 0;
+    position: relative;
+  }
+
+  .trust-node {
+    width: 100px; height: 100px; border-radius: 16px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 0 30px rgba(255,107,26,0.2);
+    animation: cardFloat 5s ease-in-out infinite;
+    backdrop-filter: blur(20px);
+  }
+  .trust-node:nth-child(3) { animation-delay: -2s; }
+  .trust-node:nth-child(5) { animation-delay: -4s; }
+
+  .laser-line {
+    width: 120px; height: 2px;
+    background: linear-gradient(90deg, var(--neon-orange), rgba(255,107,26,0.3));
+    position: relative; box-shadow: 0 0 12px var(--neon-orange);
+    animation: laserPulse 2s ease-in-out infinite;
+  }
+
+  .laser-line::after {
+    content: '';
+    position: absolute; right: -4px; top: -3px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--neon-orange);
+    box-shadow: 0 0 12px var(--neon-orange);
+  }
+
+  @keyframes laserPulse {
+    0%,100% { opacity: 1; box-shadow: 0 0 12px var(--neon-orange); }
+    50% { opacity: 0.4; box-shadow: 0 0 4px var(--neon-orange); }
+  }
+
+  /* ── SLIDE 5: ROBOT ── */
+  #slide-5 .content {
+    display: flex; align-items: center; gap: 60px; max-width: 1000px;
+  }
+
+  .robot-figure {
+    flex-shrink: 0; animation: robotFloat 6s ease-in-out infinite;
+  }
+
+  .robot-svg { width: 180px; height: 220px; }
+
+  /* ── SLIDE 6: ENTERPRISE ── */
+  #slide-6 .content {
+    max-width: 860px; width: 100%;
+    animation: cardFloat 7s ease-in-out infinite;
+  }
+
+  .enterprise-panel { padding: 64px; }
+
+  .enterprise-badge {
+    display: inline-block; padding: 6px 18px; border-radius: 100px;
+    background: rgba(255,107,26,0.12); border: 1px solid rgba(255,107,26,0.4);
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--neon-orange); margin-bottom: 24px;
+  }
+
+  .enterprise-stats {
+    display: flex; gap: 48px; margin-top: 40px;
+    padding-top: 40px; border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .stat-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 3rem; font-weight: 700; color: var(--neon-orange);
+    line-height: 1;
+  }
+  .stat-label { font-size: 0.85rem; color: var(--silver); margin-top: 6px; }
+
+  /* ── SLIDE 7: PROJECT TO PRODUCT ── */
+  #slide-7 .content {
+    display: flex; gap: 40px; max-width: 1000px; width: 100%;
+    animation: cardFloat 7s ease-in-out infinite;
+  }
+
+  .avatar-card {
+    flex: 1; padding: 40px 36px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  .avatar-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 0 24px rgba(255,107,26,0.3);
+  }
+
+  .avatar-icon.male { background: linear-gradient(135deg, #1A3A6B, #0D1F3C); border: 1px solid rgba(100,160,255,0.4); }
+  .avatar-icon.female { background: linear-gradient(135deg, #6B1A3A, #3C0D1F); border: 1px solid rgba(255,100,160,0.4); }
+
+  .avatar-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.5rem; font-weight: 700;
+  }
+
+  /* ── SLIDE 8: STAKEHOLDERS ── */
+  #slide-8 .content {
+    display: flex; flex-direction: column; gap: 32px;
+    max-width: 1000px; width: 100%;
+  }
+
+  .data-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    animation: cardFloat 9s ease-in-out infinite;
+  }
+
+  .grid-cell {
+    padding: 28px 24px; border-radius: 16px;
+    background: var(--glass-bg);
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .grid-cell.highlight {
+    border-color: var(--glass-border);
+    box-shadow: 0 0 24px rgba(255,107,26,0.12);
+  }
+
+  .grid-cell-label {
+    font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--neon-orange); margin-bottom: 10px;
+  }
+
+  .grid-cell-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.2rem; font-weight: 600;
+  }
+
+  .grid-cell-sub { font-size: 0.82rem; color: var(--silver); margin-top: 6px; }
+
+  /* ── SLIDE 9: FINANCING ── */
+  #slide-9 .content {
+    display: flex; gap: 48px; align-items: center;
+    max-width: 1000px; width: 100%;
+    animation: cardFloat 8s ease-in-out infinite;
+  }
+
+  .finance-panel { flex: 1; padding: 52px 48px; }
+
+  .vc-list { list-style: none; margin-top: 24px; }
+  .vc-list li {
+    padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .vc-list li span:first-child { font-size: 0.9rem; color: var(--silver); }
+  .vc-tag {
+    font-size: 10px; padding: 4px 10px; border-radius: 100px;
+    background: rgba(255,107,26,0.12); color: var(--neon-orange);
+    border: 1px solid rgba(255,107,26,0.3); letter-spacing: 1px;
+  }
+
+  /* ── SLIDE 10: RESOLUTION ── */
+  #slide-10 .content {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; gap: 40px;
+  }
+
+  .orb-cage {
+    position: relative; width: 200px; height: 200px;
+    animation: orbFloat 6s ease-in-out infinite;
+  }
+
+  .orb-cage .orb { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .cage-bars {
+    position: absolute; inset: -8px;
+    border: 2px solid rgba(255,107,26,0.5);
+    border-radius: 24px;
+    backdrop-filter: blur(4px);
+    background: rgba(10,10,15,0.2);
+    box-shadow: 0 0 40px rgba(255,107,26,0.15), inset 0 0 40px rgba(10,10,15,0.3);
+  }
+
+  .cage-bars::before, .cage-bars::after {
+    content: '';
+    position: absolute; background: rgba(255,107,26,0.4);
+  }
+  .cage-bars::before { left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); }
+  .cage-bars::after { top: 50%; left: 0; right: 0; height: 2px; transform: translateY(-50%); }
+
+  /* ── NAVIGATION HUD ── */
+  .hud {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+    z-index: 100;
+    display: flex; align-items: center; gap: 20px;
+  }
+
+  .slide-dots {
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.4s ease; cursor: pointer;
+  }
+
+  .dot.active {
+    width: 24px; border-radius: 3px;
+    background: var(--neon-orange);
+    box-shadow: 0 0 12px var(--neon-orange);
+  }
+
+  .slide-counter {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px; font-weight: 500;
+    color: rgba(255,255,255,0.35); letter-spacing: 2px;
+    min-width: 60px; text-align: center;
+  }
+
+  /* key hints */
+  .key-hints {
+    position: fixed; bottom: 40px; right: 48px; z-index: 100;
+    display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+  }
+
+  .key-hint {
+    font-size: 10px; color: rgba(255,255,255,0.2); letter-spacing: 1px;
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .key {
+    display: inline-block; padding: 2px 6px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-family: monospace; font-size: 9px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  /* ── PRESENTER VIEW ── */
+  .presenter-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: #070710;
+    display: none; opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .presenter-overlay.visible { display: flex; opacity: 1; }
+
+  .presenter-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 0; width: 100%; height: 100%;
+    padding: 24px; gap: 24px;
+  }
+
+  .presenter-header {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; border-radius: 12px;
+    background: rgba(255,107,26,0.05); border: 1px solid rgba(255,107,26,0.2);
+  }
+
+  .presenter-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--neon-orange);
+  }
+
+  .presenter-timer {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2rem; font-weight: 700; color: var(--white);
+    letter-spacing: 4px;
+  }
+
+  .presenter-slide-info { font-size: 12px; color: var(--silver); letter-spacing: 2px; }
+
+  .presenter-panel {
+    border-radius: 16px; overflow: hidden; position: relative;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(5,5,10,0.8);
+  }
+
+  .presenter-panel-label {
+    position: absolute; top: 16px; left: 16px; z-index: 10;
+    font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+    color: rgba(255,255,255,0.3); pointer-events: none;
+  }
+
+  .panel-current { border-color: rgba(255,107,26,0.4); }
+
+  .mini-slide {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    transform: scale(0.5); transform-origin: center;
+    pointer-events: none;
+  }
+
+  .presenter-notes {
+    grid-column: 1 / -1;
+    padding: 28px 32px; border-radius: 12px;
+    background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .notes-label {
+    font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--neon-orange); margin-bottom: 12px;
+  }
+
+  .notes-text {
+    font-size: 1rem; line-height: 1.8; color: var(--silver);
+    font-family: 'Inter', sans-serif;
+  }
+
+  .presenter-close {
+    position: absolute; top: 24px; right: 24px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 20px; color: var(--silver);
+    transition: all 0.2s ease; z-index: 10;
+  }
+  .presenter-close:hover { background: rgba(255,107,26,0.15); border-color: var(--neon-orange); color: var(--neon-orange); }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    position: fixed; top: 0; left: 0; height: 2px;
+    background: linear-gradient(90deg, #FF6B1A, #FFB347);
+    box-shadow: 0 0 12px var(--neon-orange);
+    transition: width 1s cubic-bezier(0.25, 1, 0.5, 1);
+    z-index: 200;
+  }
+
+  /* ── PRESENTER NAMES BADGE ── */
+  .presenter-names {
+    position: fixed; top: 24px; left: 32px; z-index: 100;
+    display: flex; gap: 10px; align-items: center;
+  }
+
+  .name-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border-radius: 100px;
+    background: rgba(10,10,15,0.7);
+    border: 1px solid rgba(255,107,26,0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px; font-weight: 500;
+    color: var(--white);
+    box-shadow: 0 0 16px rgba(255,107,26,0.06);
+    white-space: nowrap;
+  }
+
+  .name-badge .roll {
+    font-size: 10px; color: var(--neon-orange);
+    background: rgba(255,107,26,0.1);
+    border: 1px solid rgba(255,107,26,0.25);
+    border-radius: 100px; padding: 1px 7px;
+    letter-spacing: 1px; font-weight: 600;
+  }
+
+  .name-badge-sep {
+    color: rgba(255,255,255,0.15); font-size: 14px;
+  }
+
+  /* ── FULLSCREEN BUTTON ── */
+  .fs-btn {
+    position: fixed; top: 24px; right: 32px; z-index: 200;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 100px;
+    background: rgba(10,10,15,0.75);
+    border: 1px solid rgba(255,107,26,0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    cursor: pointer;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px; font-weight: 500;
+    color: var(--silver);
+    transition: all 0.25s ease;
+    box-shadow: 0 0 20px rgba(255,107,26,0.06);
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .fs-btn:hover {
+    background: rgba(255,107,26,0.12);
+    border-color: var(--neon-orange);
+    color: var(--white);
+    box-shadow: 0 0 24px rgba(255,107,26,0.2);
+  }
+
+  .fs-btn:active { transform: scale(0.95); }
+
+  .fs-btn svg {
+    width: 14px; height: 14px; flex-shrink: 0;
+    stroke: var(--neon-orange); fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .fs-btn .fs-label { display: inline; }
+
+  /* On very small screens hide the label, keep icon */
+  @media (max-width: 400px) {
+    .fs-btn .fs-label { display: none; }
+    .fs-btn { padding: 8px 10px; }
+    .presenter-names { gap: 6px; }
+    .name-badge { padding: 6px 10px; font-size: 11px; }
+  }
+
+  /* ── MOBILE RESPONSIVE SLIDES ── */
+  @media (max-width: 768px) {
+    .slide { padding: 20px 16px; }
+    h1.slide-title { font-size: clamp(1.8rem, 7vw, 3rem); }
+    h2.slide-title { font-size: clamp(1.4rem, 5vw, 2.2rem); }
+    .slide-body { font-size: clamp(0.8rem, 3.5vw, 1rem); }
+    .orb { width: 120px; height: 120px; }
+    .orb-cage { width: 120px; height: 120px; }
+    .key-hints { display: none; }
+  }
+
+  /* Simulated fullscreen fallback for browsers that block the API */
+  body.simulated-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 99999 !important;
+  }
+
+  /* scan line effect */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px, transparent 2px,
+      rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none; z-index: 5000;
+    animation: scanlines 8s linear infinite;
+  }
+
+  @keyframes scanlines {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100px; }
+  }
+
+  /* Slide title for all slides with centered layout */
+  .slide-center { text-align: center; align-items: center; }
+
+  /* Vignette */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none; z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- Presenter Names -->
+<div class="presenter-names">
+  <div class="name-badge">
+    Mrinal <span class="roll">#30</span>
+  </div>
+  <span class="name-badge-sep">·</span>
+  <div class="name-badge">
+    Biman <span class="roll">#19</span>
+  </div>
+</div>
+
+<!-- Fullscreen Button -->
+<button class="fs-btn" id="fsBtn" title="Toggle Fullscreen (F)" aria-label="Toggle Fullscreen">
+  <svg id="fsIcon" viewBox="0 0 24 24">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+  </svg>
+  <span class="fs-label" id="fsLabel">Fullscreen</span>
+</button>
+
+<!-- Progress Bar -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Tunnel Background -->
+<div class="tunnel-wrapper">
+  <div class="tunnel-bg" id="tunnelBg"></div>
+  <div class="tunnel-grid" id="tunnelGrid"></div>
+  <div class="tunnel-rings" id="tunnelRings"></div>
+  <div class="particles" id="particles"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDES ═══════════════ -->
+<div class="slides-container" id="slidesContainer">
+
+  <!-- SLIDE 1: THE HOOK -->
+  <div class="slide active" id="slide-1">
+    <div class="content" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:32px;">
+      <div class="orb"></div>
+      <div>
+        <div class="slide-eyebrow">01 &mdash; The Hook</div>
+        <h1 class="slide-title">The Open-Source<br><span class="accent">AI Paradox</span></h1>
+        <p class="slide-body" style="max-width:560px;margin:0 auto;">Spending millions on compute.<br>Giving the intelligence away for free.</p>
+      </div>
+      <div class="orb-label">↓ Scroll into the future</div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: THE DIVIDE -->
+  <div class="slide" id="slide-2">
+    <div class="content" style="display:flex;gap:40px;align-items:stretch;max-width:1000px;width:100%;">
+      <div class="glass-card divide-card card-closed" style="animation:cardFloat 6s ease-in-out infinite;">
+        <div class="icon">🏰</div>
+        <div>
+          <div class="slide-eyebrow">Closed</div>
+          <h3 class="slide-title" style="font-size:1.8rem;">Walled Gardens</h3>
+        </div>
+        <p class="slide-body">GPT-4, Gemini Ultra, Claude. Locked APIs, proprietary weights, subscription moats. Control the model, control the developer.</p>
+        <ul style="list-style:none;margin-top:auto;">
+          <li style="padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:0.85rem;color:var(--silver);">✦ Managed infrastructure</li>
+          <li style="padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:0.85rem;color:var(--silver);">✦ Indemnification coverage</li>
+          <li style="padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:0.85rem;color:var(--silver);">✦ Premium fine-tuning access</li>
+        </ul>
+      </div>
+
+      <div class="vs-divider">VS</div>
+
+      <div class="glass-card divide-card card-open" style="animation:cardFloat 6s ease-in-out infinite;animation-delay:-3s;">
+        <div class="icon">⚡</div>
+        <div>
+          <div class="slide-eyebrow">Open</div>
+          <h3 class="slide-title" style="font-size:1.8rem;">Challengers</h3>
+        </div>
+        <p class="slide-body">Llama 3, Mistral, Phi-3. Downloadable weights, community-driven, self-hosted. Developer-first by design.</p>
+        <ul style="list-style:none;margin-top:auto;">
+          <li style="padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:0.85rem;color:var(--silver);">✦ Local inference freedom</li>
+          <li style="padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:0.85rem;color:var(--silver);">✦ Community fine-tuning</li>
+          <li style="padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:0.85rem;color:var(--silver);">✦ Zero API lock-in</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: TRADE-OFFS -->
+  <div class="slide" id="slide-3">
+    <div style="max-width:900px;width:100%;animation:cardFloat 8s ease-in-out infinite;">
+      <div style="text-align:center;margin-bottom:40px;">
+        <div class="slide-eyebrow">03 &mdash; Trade-Offs</div>
+        <h2 class="slide-title">The Sharing Economy<br>Hits <span class="accent">Intellectual Property</span></h2>
+      </div>
+      <div class="glass-card" style="padding:0;overflow:hidden;display:flex;">
+        <div class="tradeoff-panel" style="border-right:1px solid rgba(255,107,26,0.2);">
+          <h3 style="color:#4ade80;font-family:'Space Grotesk',sans-serif;font-size:1.4rem;">✦ Pros</h3>
+          <ul class="tradeoff-panel" style="padding:0;"><ul>
+            <li>Rapid innovation through community iteration and public benchmarks</li>
+            <li>Lower barrier for academic research and emerging markets</li>
+            <li>Transparency in model behavior and training methodology</li>
+            <li>Enables specialized fine-tuning without data privacy risks</li>
+            <li>Reduces dependency on single-vendor infrastructure</li>
+          </ul></ul>
+        </div>
+        <div class="tradeoff-panel">
+          <h3 style="color:var(--neon-orange);font-family:'Space Grotesk',sans-serif;font-size:1.4rem;">✦ Cons</h3>
+          <ul class="tradeoff-panel" style="padding:0;"><ul>
+            <li>Massive capital expenditure with no direct revenue model</li>
+            <li>Adversarial fine-tuning and safety alignment bypasses</li>
+            <li>Fragmentation of the ecosystem across incompatible formats</li>
+            <li>Compute cost at scale remains prohibitive without cloud</li>
+            <li>Liability gap in enterprise deployment and compliance</li>
+          </ul></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: TRUST GAP -->
+  <div class="slide" id="slide-4">
+    <div class="content" style="display:flex;flex-direction:column;align-items:center;gap:48px;text-align:center;">
+      <div>
+        <div class="slide-eyebrow">04 &mdash; Trust Gap</div>
+        <h2 class="slide-title">Transaction Costs &<br><span class="accent">Hallucination Liabilities</span></h2>
+      </div>
+      <div class="trust-nodes">
+        <div class="trust-node">🏥</div>
+        <div class="laser-line"></div>
+        <div class="trust-node">🤖</div>
+        <div class="laser-line" style="background:linear-gradient(90deg,rgba(255,107,26,0.3),var(--neon-orange));"></div>
+        <div class="trust-node">⚖️</div>
+      </div>
+      <p class="slide-body" style="max-width:560px;">In healthcare, law, and finance, the cost of a wrong answer isn't a bad user experience — it's a <span style="color:var(--neon-orange);">liability event</span>. Cyberphysical trust gaps remain the last moat proprietary AI can credibly claim.</p>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: INFRASTRUCTURE PLAY -->
+  <div class="slide" id="slide-5">
+    <div class="content" style="display:flex;align-items:center;gap:60px;max-width:1000px;">
+      <!-- SVG Robot -->
+      <div class="robot-figure">
+        <svg class="robot-svg" viewBox="0 0 180 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Body -->
+          <rect x="40" y="90" width="100" height="90" rx="12" fill="rgba(10,10,15,0.9)" stroke="rgba(255,107,26,0.6)" stroke-width="1.5"/>
+          <!-- Chest panel -->
+          <rect x="55" y="105" width="70" height="50" rx="8" fill="rgba(255,107,26,0.05)" stroke="rgba(255,107,26,0.3)" stroke-width="1"/>
+          <!-- Chest LEDs -->
+          <circle cx="72" cy="125" r="5" fill="#FF6B1A" opacity="0.9"/>
+          <circle cx="90" cy="125" r="5" fill="rgba(255,107,26,0.4)"/>
+          <circle cx="108" cy="125" r="5" fill="rgba(255,107,26,0.2)"/>
+          <!-- Lines on chest -->
+          <line x1="60" y1="140" x2="120" y2="140" stroke="rgba(255,107,26,0.2)" stroke-width="1"/>
+          <line x1="60" y1="148" x2="100" y2="148" stroke="rgba(255,107,26,0.15)" stroke-width="1"/>
+          <!-- Head -->
+          <rect x="50" y="30" width="80" height="55" rx="14" fill="rgba(10,10,15,0.95)" stroke="rgba(255,107,26,0.7)" stroke-width="1.5"/>
+          <!-- Eyes -->
+          <rect x="62" y="46" width="22" height="14" rx="4" fill="rgba(255,107,26,0.15)" stroke="rgba(255,107,26,0.8)" stroke-width="1"/>
+          <rect x="96" y="46" width="22" height="14" rx="4" fill="rgba(255,107,26,0.15)" stroke="rgba(255,107,26,0.8)" stroke-width="1"/>
+          <rect x="67" y="49" width="12" height="8" rx="2" fill="#FF6B1A"/>
+          <rect x="101" y="49" width="12" height="8" rx="2" fill="rgba(255,107,26,0.5)"/>
+          <!-- Mouth -->
+          <line x1="68" y1="73" x2="112" y2="73" stroke="rgba(255,107,26,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+          <!-- Neck -->
+          <rect x="75" y="83" width="30" height="10" rx="4" fill="rgba(10,10,15,0.9)" stroke="rgba(255,107,26,0.4)" stroke-width="1"/>
+          <!-- Left arm -->
+          <rect x="12" y="95" width="26" height="70" rx="10" fill="rgba(10,10,15,0.9)" stroke="rgba(255,107,26,0.5)" stroke-width="1.5"/>
+          <!-- Right arm -->
+          <rect x="142" y="95" width="26" height="70" rx="10" fill="rgba(10,10,15,0.9)" stroke="rgba(255,107,26,0.5)" stroke-width="1.5"/>
+          <!-- Legs -->
+          <rect x="52" y="178" width="30" height="36" rx="8" fill="rgba(10,10,15,0.9)" stroke="rgba(255,107,26,0.5)" stroke-width="1.5"/>
+          <rect x="98" y="178" width="30" height="36" rx="8" fill="rgba(10,10,15,0.9)" stroke="rgba(255,107,26,0.5)" stroke-width="1.5"/>
+          <!-- Glow effect -->
+          <ellipse cx="90" cy="125" rx="35" ry="25" fill="rgba(255,107,26,0.04)"/>
+          <circle cx="72" cy="125" r="10" fill="rgba(255,107,26,0.08)"/>
+        </svg>
+      </div>
+      <div class="glass-card" style="flex:1;padding:48px 44px;animation:cardFloat 7s ease-in-out infinite;">
+        <div class="slide-eyebrow">05 &mdash; Monetization Play 1</div>
+        <h2 class="slide-title">The Infrastructure <span class="accent">Play</span></h2>
+        <p class="slide-body">Prototyping locally on an RTX 4070 Super with 32GB RAM costs ~₹80K. Scaling to serve 10,000 concurrent users demands $40K/month in cloud GPU spend. The open model is free. The pipes are not.</p>
+        <div style="margin-top:28px;padding:20px 24px;border-radius:12px;background:rgba(255,107,26,0.06);border:1px solid rgba(255,107,26,0.2);">
+          <div style="font-size:0.82rem;color:var(--neon-orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Infrastructure Stack</div>
+          <div style="font-size:0.9rem;color:var(--silver);line-height:1.8;">CUDA → vLLM → Triton → Kubernetes → Cloudflare</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: ENTERPRISE SUPPORT -->
+  <div class="slide" id="slide-6">
+    <div class="glass-card enterprise-panel" style="max-width:860px;width:100%;animation:cardFloat 7s ease-in-out infinite;">
+      <div class="enterprise-badge">Monetization Play 2</div>
+      <div class="slide-eyebrow">06 &mdash; Enterprise</div>
+      <h2 class="slide-title">Enterprise<br><span class="accent">Support</span></h2>
+      <p class="slide-body" style="max-width:600px;">Corporations pay millions for indemnification, SLA guarantees, and fine-tuning pipelines to run enterprise-level tools like <strong style="color:var(--white);">Sentinel AI</strong> safely — where a single hallucination can cost more than the annual subscription.</p>
+      <div class="enterprise-stats">
+        <div>
+          <div class="stat-num">$4M+</div>
+          <div class="stat-label">Average enterprise AI contract</div>
+        </div>
+        <div>
+          <div class="stat-num">99.9%</div>
+          <div class="stat-label">SLA uptime requirement</div>
+        </div>
+        <div>
+          <div class="stat-num">Zero</div>
+          <div class="stat-label">Tolerance for IP leakage</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: PROJECT TO PRODUCT -->
+  <div class="slide" id="slide-7">
+    <div style="display:flex;flex-direction:column;gap:32px;max-width:1000px;width:100%;animation:cardFloat 7s ease-in-out infinite;">
+      <div>
+        <div class="slide-eyebrow">07 &mdash; Monetization Play 3</div>
+        <h2 class="slide-title">Project to <span class="accent">Product</span></h2>
+        <p class="slide-body">The real value layer: integrating LLMs into persistent 3D avatars with distinct personas.</p>
+      </div>
+      <div style="display:flex;gap:24px;">
+        <div class="glass-card avatar-card" style="animation:cardFloat 6s ease-in-out infinite;">
+          <div class="avatar-icon male">🧑‍💻</div>
+          <div class="avatar-name">Niel</div>
+          <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(100,160,255,0.8);">Male AI Guide</div>
+          <p class="slide-body" style="margin-top:8px;">Technical deep-dives, system architecture walkthroughs, and developer-oriented guidance for NIELIT's engineering curriculum.</p>
+        </div>
+        <div class="glass-card avatar-card" style="animation:cardFloat 6s ease-in-out infinite;animation-delay:-3s;">
+          <div class="avatar-icon female">👩‍🏫</div>
+          <div class="avatar-name">Vidya</div>
+          <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,100,160,0.8);">Female AI Guide</div>
+          <p class="slide-body" style="margin-top:8px;">Pedagogical support, student mentorship pathways, and accessible explanations for complex AI/ML concepts.</p>
+        </div>
+        <div class="glass-card avatar-card" style="animation:cardFloat 6s ease-in-out infinite;animation-delay:-1.5s;border-color:rgba(255,107,26,0.4);">
+          <div class="avatar-icon" style="background:linear-gradient(135deg,rgba(255,107,26,0.3),rgba(200,50,0,0.3));border:1px solid rgba(255,107,26,0.5);">🌐</div>
+          <div class="avatar-name" style="color:var(--neon-orange);">NIELIT Guide</div>
+          <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--neon-orange);">Platform</div>
+          <p class="slide-body" style="margin-top:8px;">One product. Two personas. Infinite customization. The template for government-grade AI education infrastructure.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: STAKEHOLDERS -->
+  <div class="slide" id="slide-8">
+    <div style="display:flex;flex-direction:column;gap:32px;max-width:1000px;width:100%;">
+      <div>
+        <div class="slide-eyebrow">08 &mdash; Stakeholders</div>
+        <h2 class="slide-title">Who Wins When<br><span class="accent">Models Go Open?</span></h2>
+      </div>
+      <div class="data-grid" style="animation:cardFloat 9s ease-in-out infinite;">
+        <div class="grid-cell highlight">
+          <div class="grid-cell-label">Primary Beneficiary</div>
+          <div class="grid-cell-value">Engineering Students</div>
+          <div class="grid-cell-sub">Zero-cost access to frontier intelligence for learning and prototyping</div>
+        </div>
+        <div class="grid-cell highlight">
+          <div class="grid-cell-label">Primary Beneficiary</div>
+          <div class="grid-cell-value">Indie Developers</div>
+          <div class="grid-cell-sub">Build and ship products without per-token API costs eating margins</div>
+        </div>
+        <div class="grid-cell">
+          <div class="grid-cell-label">Secondary</div>
+          <div class="grid-cell-value">Enterprises</div>
+          <div class="grid-cell-sub">On-prem deployment with full data sovereignty and compliance</div>
+        </div>
+        <div class="grid-cell">
+          <div class="grid-cell-label">Ecosystem</div>
+          <div class="grid-cell-value">Research Labs</div>
+          <div class="grid-cell-sub">Reproducible science without proprietary black-box constraints</div>
+        </div>
+        <div class="grid-cell">
+          <div class="grid-cell-label">Ecosystem</div>
+          <div class="grid-cell-value">Governments</div>
+          <div class="grid-cell-sub">Sovereign AI without dependency on foreign corporate infrastructure</div>
+        </div>
+        <div class="grid-cell" style="border-color:rgba(255,80,80,0.3);">
+          <div class="grid-cell-label" style="color:rgba(255,80,80,0.7);">Disrupted</div>
+          <div class="grid-cell-value">API Wrapper Startups</div>
+          <div class="grid-cell-sub">Margin compression as open models commoditize the middle layer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 9: FINANCING -->
+  <div class="slide" id="slide-9">
+    <div style="display:flex;gap:48px;align-items:center;max-width:1000px;width:100%;">
+      <div class="glass-card" style="flex:1;padding:52px 48px;animation:cardFloat 8s ease-in-out infinite;">
+        <div class="slide-eyebrow">09 &mdash; Financing</div>
+        <h2 class="slide-title">Death of the<br><span class="accent">Wrapper App</span></h2>
+        <p class="slide-body">Venture capital now demands deep-tech infrastructure moats — not API orchestration layers that evaporate when OpenAI ships a new model.</p>
+        <ul class="vc-list">
+          <li><span>Infrastructure & Compute</span><span class="vc-tag">HOT</span></li>
+          <li><span>Vertical AI (Legal, Medical, Code)</span><span class="vc-tag">HOT</span></li>
+          <li><span>Foundation Model Labs</span><span class="vc-tag">SELECTIVE</span></li>
+          <li><span>Generic Chatbot Apps</span><span class="vc-tag" style="color:rgba(255,80,80,0.8);border-color:rgba(255,80,80,0.3);background:rgba(255,80,80,0.08);">DEAD</span></li>
+          <li><span>API Wrappers / Aggregators</span><span class="vc-tag" style="color:rgba(255,80,80,0.8);border-color:rgba(255,80,80,0.3);background:rgba(255,80,80,0.08);">DEAD</span></li>
+        </ul>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:20px;">
+        <div class="glass-card" style="padding:28px 32px;animation:cardFloat 6s ease-in-out infinite;">
+          <div style="font-size:2.5rem;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--neon-orange);">$110B</div>
+          <div style="font-size:0.85rem;color:var(--silver);margin-top:4px;">AI infrastructure investment in 2024</div>
+        </div>
+        <div class="glass-card" style="padding:28px 32px;animation:cardFloat 6s ease-in-out infinite;animation-delay:-3s;">
+          <div style="font-size:2.5rem;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--white);">72%</div>
+          <div style="font-size:0.85rem;color:var(--silver);margin-top:4px;">VC deals now require infrastructure differentiation</div>
+        </div>
+        <div class="glass-card" style="padding:28px 32px;animation:cardFloat 6s ease-in-out infinite;animation-delay:-1.5s;">
+          <div style="font-size:2.5rem;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--neon-orange);">3×</div>
+          <div style="font-size:0.85rem;color:var(--silver);margin-top:4px;">Premium on open-source native infrastructure startups</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 10: RESOLUTION -->
+  <div class="slide" id="slide-10">
+    <div class="content" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:40px;">
+      <div>
+        <div class="slide-eyebrow">10 &mdash; Resolution</div>
+        <h1 class="slide-title">The Future<br>is <span class="accent">Hybrid</span></h1>
+      </div>
+      <div class="orb-cage">
+        <div class="orb caged"></div>
+        <div class="cage-bars"></div>
+      </div>
+      <p class="slide-body" style="max-width:580px;font-size:1.1rem;">Open-source is the new Linux — ubiquitous at the foundation. Proprietary intelligence thrives at the regulated edge, where liability demands accountability. <span style="color:var(--neon-orange);">The paradox resolves into partnership.</span></p>
+      <div style="display:flex;gap:32px;padding-top:8px;">
+        <div style="text-align:left;">
+          <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:6px;">Open Layer</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600;">Foundation · Training · Research</div>
+        </div>
+        <div style="width:1px;background:rgba(255,107,26,0.3);"></div>
+        <div style="text-align:left;">
+          <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--neon-orange);margin-bottom:6px;">Proprietary Layer</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600;">Alignment · Compliance · Edge</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end slides-container -->
+
+<!-- ── NAVIGATION HUD ── -->
+<div class="hud">
+  <div class="slide-dots" id="dots"></div>
+</div>
+<div class="slide-counter" id="slideCounter" style="position:fixed;bottom:40px;right:calc(50% - 120px);z-index:100;transform:translateX(50%);font-family:'Space Grotesk',sans-serif;font-size:12px;letter-spacing:3px;color:rgba(255,255,255,0.3);"></div>
+
+<div class="key-hints">
+  <div class="key-hint"><span class="key">F</span> Fullscreen</div>
+  <div class="key-hint"><span class="key">P</span> Presenter</div>
+  <div class="key-hint"><span class="key">←</span><span class="key">→</span> Navigate</div>
+</div>
+
+<!-- ── PRESENTER VIEW ── -->
+<div class="presenter-overlay" id="presenterOverlay">
+  <button class="presenter-close" id="presenterClose">×</button>
+  <div class="presenter-layout">
+    <div class="presenter-header">
+      <div class="presenter-label">⬡ Presenter Mode</div>
+      <div class="presenter-timer" id="presenterTimer">00:00</div>
+      <div class="presenter-slide-info" id="presenterSlideInfo">Slide 1 of 10</div>
+    </div>
+
+    <div class="presenter-panel panel-current">
+      <div class="presenter-panel-label">▶ Current</div>
+      <div id="currentPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:40px;"></div>
+    </div>
+
+    <div class="presenter-panel">
+      <div class="presenter-panel-label">Next ▷</div>
+      <div id="nextPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:40px;opacity:0.5;"></div>
+    </div>
+
+    <div class="presenter-notes">
+      <div class="notes-label">Speaker Notes</div>
+      <div class="notes-text" id="speakerNotes"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════ STATE ═══════════════════
+const TOTAL_SLIDES = 10;
+let currentSlide = 1;
+let presenterOpen = false;
+let timerInterval = null;
+let timerSeconds = 0;
+
+// ═══════════════════ SPEAKER NOTES ═══════════════════
+const speakerNotes = {
+  1: "Introduce the core paradox: frontier AI labs are spending $100M+ on compute clusters to train models, only to publish the weights for free. Why would OpenAI's competitors do this? Frame it as an economic mystery that the next 9 slides will unravel.",
+  2: "This is the battle for developer mindshare — and ultimately for foundational infrastructure dominance. Whoever controls the training pipeline and the inference layer controls the AI economy. The divide isn't just technical; it's a strategic war for the developer community.",
+  3: "Draw the analogy: Airbnb didn't own homes; Uber doesn't own cars. Now intelligence is being decoupled from infrastructure. The sharing economy has moved from physical assets to intellectual property. The question is: who profits when IP becomes a commodity?",
+  4: "The trust gap is the last real moat. In high-stakes environments — surgical robotics, legal discovery, financial compliance — a 95% accuracy rate means 5% catastrophic failure. Proprietary models can be indemnified. Open models cannot. This is the cyberphysical trust frontier.",
+  5: "Local prototyping on an RTX 4070 Super with 32GB RAM is accessible — roughly ₹80,000 in hardware. But scaling to production requires massive cloud GPU spend. NVIDIA, AWS, and Azure are the real winners of the open-source AI boom. The model is free; the pipe is not.",
+  6: "Corporations — banks, healthcare systems, defense contractors — pay millions not for the model itself, but for the wrapper: SLAs, indemnification, compliance audits, and dedicated fine-tuning pipelines. Sentinel AI is a perfect example: enterprise security analysis that requires contractual accountability.",
+  7: "The application layer is where individual developers can still win. The NIELIT Guide project demonstrates this: by giving the LLM a persistent 3D avatar and a distinct persona — Niel for technical depth, Vidya for pedagogical warmth — you transform a commodity model into a branded product. That's defensible.",
+  8: "Open models fundamentally lower the barrier for the next generation. An engineering student in Ropar can now access the same base intelligence as a Stanford researcher. The disrupted party is the 'wrapper startup' — apps that add a UI skin over OpenAI's API with no underlying differentiation.",
+  9: "Venture capital has made the call: deep-tech infrastructure and vertical AI are the investable categories. The era of 'wrapper apps' — chatbots built by calling GPT-4 with a clever prompt — is over. Investors now demand proprietary data flywheels, fine-tuned models, or hardware integration.",
+  10: "The resolution is not victory for one side — it's stratification. Open-source becomes the Linux of AI: the universal, auditable foundation that runs everything. Proprietary models dominate the regulated edge — finance, medicine, law — where liability demands a name on the contract. The paradox resolves into partnership."
+};
+
+// ═══════════════════ PARTICLES ═══════════════════
+function initParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 3 + 1;
+    p.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random() * 100}%;
+      --drift:${(Math.random()-0.5) * 200}px;
+      animation-duration:${Math.random() * 15 + 10}s;
+      animation-delay:${Math.random() * -20}s;
+    `;
+    container.appendChild(p);
+  }
+}
+
+// ═══════════════════ TUNNEL RINGS ═══════════════════
+function initRings() {
+  const container = document.getElementById('tunnelRings');
+  const sizes = [200,350,500,650,800,1000,1200,1500];
+  sizes.forEach((size, i) => {
+    const ring = document.createElement('div');
+    ring.className = 'ring';
+    ring.style.cssText = `width:${size}px;height:${size}px;animation-delay:${i*-1.5}s;`;
+    container.appendChild(ring);
+  });
+}
+
+// ═══════════════════ DOTS ═══════════════════
+function initDots() {
+  const container = document.getElementById('dots');
+  container.innerHTML = '';
+  for (let i = 1; i <= TOTAL_SLIDES; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === currentSlide ? ' active' : '');
+    dot.addEventListener('click', () => goToSlide(i));
+    container.appendChild(dot);
+  }
+}
+
+function updateDots() {
+  document.querySelectorAll('.dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i + 1 === currentSlide);
+  });
+}
+
+// ═══════════════════ SLIDE TRANSITION ═══════════════════
+function goToSlide(next) {
+  if (next < 1 || next > TOTAL_SLIDES || next === currentSlide) return;
+
+  const direction = next > currentSlide ? 'forward' : 'backward';
+  const prevSlide = currentSlide;
+  const current = document.getElementById(`slide-${prevSlide}`);
+  const target = document.getElementById(`slide-${next}`);
+
+  // Remove active from current
+  current.classList.remove('active');
+  if (direction === 'forward') {
+    current.classList.add('exiting');
+  } else {
+    current.classList.add('prev-exiting');
+  }
+
+  // After transition, clean up
+  setTimeout(() => {
+    current.classList.remove('exiting', 'prev-exiting');
+  }, 1600);
+
+  // Animate target in
+  currentSlide = next;
+  target.classList.add('active');
+
+  // Tunnel zoom
+  updateTunnel();
+  updateDots();
+  updateCounter();
+  updateProgressBar();
+
+  if (presenterOpen) updatePresenterView();
+}
+
+function updateTunnel() {
+  const bg = document.getElementById('tunnelBg');
+  const grid = document.getElementById('tunnelGrid');
+  const progress = (currentSlide - 1) / (TOTAL_SLIDES - 1);
+
+  if (currentSlide === TOTAL_SLIDES) {
+    // Snap back on final slide
+    bg.style.transform = 'scale(1.0)';
+    grid.style.transform = 'perspective(800px) rotateX(60deg) translateY(-30%) scale(2)';
+  } else {
+    const scale = 1 + progress * 0.5;
+    bg.style.transform = `scale(${scale})`;
+    const gridTranslate = -30 - progress * 20;
+    grid.style.transform = `perspective(800px) rotateX(60deg) translateY(${gridTranslate}%) scale(${1.5 + progress * 0.8})`;
+  }
+}
+
+function updateCounter() {
+  const el = document.getElementById('slideCounter');
+  if (el) el.textContent = `${String(currentSlide).padStart(2,'0')} / ${TOTAL_SLIDES}`;
+}
+
+function updateProgressBar() {
+  const bar = document.getElementById('progressBar');
+  bar.style.width = `${(currentSlide / TOTAL_SLIDES) * 100}%`;
+}
+
+// ═══════════════════ PRESENTER VIEW ═══════════════════
+function updatePresenterView() {
+  document.getElementById('speakerNotes').textContent = speakerNotes[currentSlide] || '';
+  document.getElementById('presenterSlideInfo').textContent = `Slide ${currentSlide} of ${TOTAL_SLIDES}`;
+
+  // Current slide preview
+  const currentPreview = document.getElementById('currentPreview');
+  currentPreview.innerHTML = getSlidePreviewHTML(currentSlide);
+
+  // Next slide preview
+  const nextPreview = document.getElementById('nextPreview');
+  const nextIdx = currentSlide < TOTAL_SLIDES ? currentSlide + 1 : null;
+  nextPreview.innerHTML = nextIdx ? getSlidePreviewHTML(nextIdx) : '<div style="color:rgba(255,255,255,0.2);font-size:0.9rem;letter-spacing:2px;">END OF DECK</div>';
+}
+
+function getSlidePreviewHTML(slideNum) {
+  const titles = {
+    1: 'The Open-Source AI Paradox',
+    2: 'Closed vs. Open: The Divide',
+    3: 'Trade-Offs',
+    4: 'The Trust Gap',
+    5: 'The Infrastructure Play',
+    6: 'Enterprise Support',
+    7: 'Project to Product',
+    8: 'Stakeholders',
+    9: 'Death of the Wrapper App',
+    10: 'The Future is Hybrid'
+  };
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,107,26,0.7);margin-bottom:10px;">SLIDE ${slideNum}</div>
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:white;line-height:1.3;">${titles[slideNum]||'—'}</div>
+    </div>
+  `;
+}
+
+function togglePresenter() {
+  presenterOpen = !presenterOpen;
+  const overlay = document.getElementById('presenterOverlay');
+
+  if (presenterOpen) {
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+    updatePresenterView();
+    startTimer();
+  } else {
+    overlay.style.opacity = '0';
+    setTimeout(() => { overlay.style.display = 'none'; }, 500);
+    stopTimer();
+  }
+}
+
+function startTimer() {
+  timerSeconds = 0;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    const m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+    const s = String(timerSeconds % 60).padStart(2, '0');
+    const el = document.getElementById('presenterTimer');
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopTimer() { clearInterval(timerInterval); }
+
+// ═══════════════════ KEYBOARD ═══════════════════
+document.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowRight':
+    case ' ':
+      e.preventDefault();
+      goToSlide(currentSlide + 1);
+      break;
+    case 'ArrowLeft':
+      e.preventDefault();
+      goToSlide(currentSlide - 1);
+      break;
+    case 'f':
+    case 'F':
+      toggleFullscreen();
+      break;
+    case 'p':
+    case 'P':
+      togglePresenter();
+      break;
+    case 'Escape':
+      if (presenterOpen) togglePresenter();
+      break;
+  }
+});
+
+// ═══════════════════ FULLSCREEN (cross-browser + button) ═══════════════════
+const fsBtn = document.getElementById('fsBtn');
+const fsIcon = document.getElementById('fsIcon');
+const fsLabel = document.getElementById('fsLabel');
+
+const expandPath = 'M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3';
+const collapsePath = 'M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3';
+
+function isFullscreen() {
+  return !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  );
+}
+
+function toggleFullscreen() {
+  const el = document.documentElement;
+  if (!isFullscreen()) {
+    const req = el.requestFullscreen || el.webkitRequestFullscreen ||
+                el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) {
+      req.call(el).catch(() => {
+        // Fallback: toggle a CSS full-viewport class for environments that block FS API
+        document.body.classList.toggle('simulated-fullscreen');
+        updateFsBtn();
+      });
+    }
+  } else {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen ||
+                 document.mozCancelFullScreen || document.msExitFullscreen;
+    if (exit) exit.call(document).catch(() => {});
+  }
+}
+
+function updateFsBtn() {
+  const fs = isFullscreen() || document.body.classList.contains('simulated-fullscreen');
+  fsIcon.querySelector('path').setAttribute('d', fs ? collapsePath : expandPath);
+  fsLabel.textContent = fs ? 'Exit' : 'Fullscreen';
+  fsBtn.title = fs ? 'Exit Fullscreen (F)' : 'Fullscreen (F)';
+}
+
+// Listen for all fullscreen change events (cross-browser)
+['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(evt => {
+  document.addEventListener(evt, updateFsBtn);
+});
+
+fsBtn.addEventListener('click', toggleFullscreen);
+
+// ═══════════════════ CURSOR ═══════════════════
+const cursor = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', (e) => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px';
+  cursor.style.top = my + 'px';
+});
+
+function animateCursorRing() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  cursorRing.style.left = rx + 'px';
+  cursorRing.style.top = ry + 'px';
+  requestAnimationFrame(animateCursorRing);
+}
+
+// ═══════════════════ PRESENTER CLOSE BUTTON ═══════════════════
+document.getElementById('presenterClose').addEventListener('click', togglePresenter);
+
+// ═══════════════════ INIT ═══════════════════
+initParticles();
+initRings();
+initDots();
+updateCounter();
+updateProgressBar();
+animateCursorRing();
+updateTunnel();
+
+// Touch/swipe support
+let touchStartX = 0;
+document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', (e) => {
+  const diff = touchStartX - e.changedTouches[0].clientX;
+  if (Math.abs(diff) > 50) {
+    goToSlide(diff > 0 ? currentSlide + 1 : currentSlide - 1);
+  }
+});
+</script>
+</body>
+</html>
